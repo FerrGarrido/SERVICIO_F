@@ -3,3 +3,6 @@ pandas
 mysql-connector-python
 sqlalchemy
 pymysql
+matplotlib
+seaborn
+openpyxl
