@@ -1,4 +1,3 @@
-
 import streamlit as st
 import mysql.connector
 import pandas as pd
@@ -7,15 +6,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # === 0. Configuración de Estilo y Paleta de Colores ===
-# Paleta de colores profesional y sobria
-COLOR_PRIMARIO = "#264A6A"  # Azul oscuro/Gris azulado para títulos y botones
-COLOR_FONDO_CLARO = "#F5F5F5" # Fondo claro general
-COLOR_GRIS_OSCURO = "#333333" # Texto principal
-COLOR_GRIS_SUAVE = "#AAAAAA"  # Texto secundario/Líneas
 
-# Configuración de Seaborn/Matplotlib para un estilo profesional
+COLOR_PRIMARIO = "#264A6A"
+COLOR_FONDO_CLARO = "#F5F5F5"
+COLOR_GRIS_OSCURO = "#333333"
+COLOR_GRIS_SUAVE = "#AAAAAA"
+
 sns.set_theme(
-    style="whitegrid", 
+    style="whitegrid",
     rc={
         'axes.edgecolor': COLOR_GRIS_SUAVE,
         'axes.labelcolor': COLOR_GRIS_OSCURO,
@@ -25,23 +23,36 @@ sns.set_theme(
         'grid.color': COLOR_FONDO_CLARO,
         'figure.facecolor': 'white',
         'axes.facecolor': 'white',
-        'patch.edgecolor': 'none', # Quitar bordes de barras
+        'patch.edgecolor': 'none',
     }
 )
 
-# RUTA DE TU IMAGEN (Ajustada para Python/Streamlit)
-RUTA_IMAGEN = "fudepa.png" 
+# === CONFIGURACIÓN DE LA APP ===
 
-# INSTRUCCIÓN CLAVE PARA EL TAMAÑO:
-# Streamlit usa 'width' para controlar el tamaño. Aumentar este valor hará 
-# que la imagen sea MÁS ANCHA y MÁS ALTA, manteniendo su proporción.
-# MODIFICA ESTE VALOR (en píxeles) al tamaño que desees:
-ANCHO_IMAGEN = 150 
+st.set_page_config(
+    page_title="Mallas Curriculares",
+    layout="wide"
+)
 
+# === LOGO ===
+
+RUTA_IMAGEN = "fudepa.png"
+ANCHO_IMAGEN = 150
+
+try:
+    st.image(RUTA_IMAGEN, width=ANCHO_IMAGEN)
+except:
+    pass
+
+st.title("Sistema de Análisis de Mallas Curriculares")
+
+st.write("Exploración de carreras, asignaturas y estructuras curriculares.")
+
+# === FUNCIÓN PARA CARGAR DATOS ===
 
 @st.cache_data(ttl=600)
 def cargar_datos():
-    
+
     try:
         conexion = mysql.connector.connect(
             host=st.secrets["DB_HOST"],
@@ -99,3 +110,56 @@ def cargar_datos():
     except mysql.connector.Error as err:
         st.error(f"Error al conectar con MySQL: {err}")
         return pd.DataFrame()
+
+# === CARGAR DATOS ===
+
+df = cargar_datos()
+
+# === VALIDACIÓN ===
+
+if df.empty:
+
+    st.warning("No se pudieron cargar datos desde la base de datos.")
+
+else:
+
+    st.success(f"Datos cargados correctamente: {len(df)} registros")
+
+    # === TABLA ===
+
+    st.subheader("Vista de Datos")
+
+    st.dataframe(df, use_container_width=True)
+
+    # === DESCARGA EXCEL ===
+
+    buffer = io.BytesIO()
+
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+
+    st.download_button(
+        label="Descargar datos en Excel",
+        data=buffer.getvalue(),
+        file_name="mallas_curriculares.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    # === GRÁFICA ===
+
+    st.subheader("Distribución de Carreras por Área de Conocimiento")
+
+    conteo = df["Area_Conocimiento"].value_counts().head(10)
+
+    fig, ax = plt.subplots()
+
+    sns.barplot(
+        x=conteo.values,
+        y=conteo.index,
+        ax=ax
+    )
+
+    ax.set_xlabel("Cantidad")
+    ax.set_ylabel("Área de conocimiento")
+
+    st.pyplot(fig)
